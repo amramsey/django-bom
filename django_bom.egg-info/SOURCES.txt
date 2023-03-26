@@ -66,6 +66,9 @@ bom/migrations/0040_alter_organization_currency.py
 bom/migrations/0041_organization_subscription_quantity.py
 bom/migrations/0042_auto_20210720_2137.py
 bom/migrations/0043_auto_20211123_0157.py
+bom/migrations/0044_auto_20220831_1241.py
+bom/migrations/0045_sellerpart_link.py
+bom/migrations/0046_alter_sellerpart_unique_together.py
 bom/migrations/__init__.py
 bom/static/.DS_Store
 bom/static/bom/.DS_Store
@@ -79,6 +82,7 @@ bom/static/bom/css/treetable-theme.css
 bom/static/bom/doc/sample_part_classes.csv
 bom/static/bom/doc/test_bom.csv
 bom/static/bom/doc/test_bom_5_intelligent.csv
+bom/static/bom/doc/test_full_bom.csv
 bom/static/bom/doc/test_new_parts.csv
 bom/static/bom/doc/test_new_parts_5_intelligent.csv
 bom/static/bom/img/.DS_Store
@@ -133,10 +137,8 @@ bom/templates/bom/bom-action-btn.html
 bom/templates/bom/bom-action-table.html
 bom/templates/bom/bom-base-menu.html
 bom/templates/bom/bom-base.html
-bom/templates/bom/bom-flat.html
 bom/templates/bom/bom-form-modal.html
 bom/templates/bom/bom-form.html
-bom/templates/bom/bom-indented.html
 bom/templates/bom/bom-signup.html
 bom/templates/bom/create-part.html
 bom/templates/bom/dashboard-menu.html
@@ -146,6 +148,8 @@ bom/templates/bom/edit-part-class.html
 bom/templates/bom/edit-part.html
 bom/templates/bom/edit-user-meta.html
 bom/templates/bom/help.html
+bom/templates/bom/manufacturer-info.html
+bom/templates/bom/manufacturers.html
 bom/templates/bom/nothing-to-see.html
 bom/templates/bom/organization-create.html
 bom/templates/bom/part-info.html
@@ -155,12 +159,18 @@ bom/templates/bom/part-revision-manage-bom.html
 bom/templates/bom/part-revision-new.html
 bom/templates/bom/part-revision-release.html
 bom/templates/bom/search-help.html
+bom/templates/bom/seller-info.html
+bom/templates/bom/sellers.html
 bom/templates/bom/settings.html
 bom/templates/bom/signup.html
 bom/templates/bom/table_of_contents.html
 bom/templates/bom/upload-bom.html
 bom/templates/bom/upload-parts-help.html
 bom/templates/bom/upload-parts.html
+bom/templates/bom/components/bom-flat.html
+bom/templates/bom/components/bom-indented.html
+bom/templates/bom/components/manufacturer-part-list.html
+bom/templates/bom/components/seller-part-list.html
 bom/templates/registration/login.html
 bom/third_party_apis/__init__.py
 bom/third_party_apis/base_api.py

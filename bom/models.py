@@ -3,7 +3,9 @@ from __future__ import unicode_literals
 import logging
 from math import ceil
 
-from django.contrib.auth.models import Group, User
+from django.conf import settings
+from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group
 from django.core.cache import cache
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
@@ -49,13 +51,14 @@ from .validators import alphanumeric, numeric, validate_pct
 
 
 logger = logging.getLogger(__name__)
+User = get_user_model()
 
 
 class Organization(models.Model):
     name = models.CharField(max_length=255, default=None)
     subscription = models.CharField(max_length=1, choices=SUBSCRIPTION_TYPES)
     subscription_quantity = models.IntegerField(default=0)
-    owner = models.ForeignKey(User, on_delete=models.CASCADE)
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     number_scheme = models.CharField(max_length=1, choices=NUMBER_SCHEMES, default=NUMBER_SCHEME_SEMI_INTELLIGENT)
     number_class_code_len = models.PositiveIntegerField(default=NUMBER_CLASS_CODE_LEN_DEFAULT,
                                                         validators=[MinValueValidator(NUMBER_CLASS_CODE_LEN_MIN), MaxValueValidator(NUMBER_CLASS_CODE_LEN_MAX)])
@@ -97,7 +100,7 @@ class Organization(models.Model):
 
 
 class UserMeta(models.Model):
-    user = models.OneToOneField(User, db_index=True, on_delete=models.CASCADE)
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, db_index=True, on_delete=models.CASCADE)
     organization = models.ForeignKey(Organization, blank=True, null=True, on_delete=models.CASCADE)
     role = models.CharField(max_length=1, choices=ROLE_TYPES)
 
@@ -135,7 +138,7 @@ class PartClass(models.Model):
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, db_index=True)
     code = models.CharField(max_length=NUMBER_CLASS_CODE_LEN_MAX, validators=[alphanumeric])
     name = models.CharField(max_length=255, default=None)
-    comment = models.CharField(max_length=255, default=None, blank=True)
+    comment = models.CharField(max_length=255, default='', blank=True)
     mouser_enabled = models.BooleanField(default=False)
 
     class Meta:
@@ -217,37 +220,71 @@ class Part(models.Model):
     def parse_part_number(part_number, organization):
         if part_number is None:
             raise AttributeError("Cannot parse empty part number")
+        if organization.number_scheme == NUMBER_SCHEME_SEMI_INTELLIGENT:
+            try:
+                (number_class, number_item, number_variation) = Part.parse_partial_part_number(part_number, organization)
+            except IndexError:
+                raise AttributeError("Invalid part number. Does not match organization preferences.")
 
-        try:
-            (number_class, number_item, number_variation) = Part.parse_partial_part_number(part_number, organization)
-        except IndexError:
-            raise AttributeError("Invalid part number. Does not match organization preferences.")
+            if number_class is None:
+                raise AttributeError("Missing part number part class")
+            if number_item is None:
+                raise AttributeError("Missing part number item number")
+            if number_variation is None and organization.number_class_code_len != 0 and organization.number_variation_len > 0:
+                raise AttributeError("Missing part number part item variation")
 
-        if number_class is None:
-            raise AttributeError("Missing part number part class")
-        if number_item is None:
-            raise AttributeError("Missing part number item number")
-        if number_variation is None and organization.number_class_code_len != 0:
-            raise AttributeError("Missing part number part item variation")
-
-        return number_class, number_item, number_variation
+            return number_class, number_item, number_variation
+        else:
+            return None, part_number, None
 
     @staticmethod
     def parse_partial_part_number(part_number, organization, validate=True):
-        elements = part_number.split('-')
+        if organization.number_scheme == NUMBER_SCHEME_SEMI_INTELLIGENT:
+            elements = part_number.split('-')
 
-        number_class = elements[0] if len(elements) >= 1 else None
-        number_item = elements[1] if len(elements) >= 2 else None
-        number_variation = elements[2] if len(elements) >= 3 else None
+            number_class = elements[0] if len(elements) >= 1 else None
+            number_item = elements[1] if len(elements) >= 2 else None
+            number_variation = elements[2] if len(elements) >= 3 else None
 
-        if validate:
-            if len(elements) >= 2:
-                number_class = Part.verify_format_number_class(elements[0], organization)
-                number_item = Part.verify_format_number_item(elements[1], organization)
-            if len(elements) >= 3:
-                number_variation = Part.verify_format_number_variation(elements[2], organization)
+            if validate:
+                if len(elements) >= 2:
+                    number_class = Part.verify_format_number_class(elements[0], organization)
+                    number_item = Part.verify_format_number_item(elements[1], organization)
+                if len(elements) >= 3:
+                    number_variation = Part.verify_format_number_variation(elements[2], organization)
 
-        return number_class, number_item, number_variation
+            return number_class, number_item, number_variation
+        else:
+            return None, part_number, None
+
+    @classmethod
+    def from_part_number(cls, part_number, organization):
+        (number_class, number_item, number_variation) = Part.parse_part_number(part_number, organization)
+        if organization.number_scheme == NUMBER_SCHEME_SEMI_INTELLIGENT:
+            return Part.objects.get(
+                number_class__code=number_class,
+                number_class__organization=organization,
+                number_item=number_item,
+                number_variation=number_variation,
+                organization=organization
+            )
+        return Part.objects.get(
+            number_item=number_item,
+            organization=organization
+        )
+
+    @classmethod
+    def from_manufacturer_part_number(cls, manufacturer_part_number, organization):
+        part = Part.objects.filter(
+            primary_manufacturer_part__manufacturer_part_number=manufacturer_part_number,
+            organization=organization
+        )
+        if len(part) == 1:
+            return part[0]
+        elif len(part) == 0:
+            return None
+        else:
+            raise ValueError('Too many objects found')
 
     def description(self):
         return self.latest().description if self.latest() is not None else ''
@@ -623,6 +660,7 @@ class ManufacturerPart(models.Model, AsDictModel):
     manufacturer_part_number = models.CharField(max_length=128, default='', blank=True)
     manufacturer = models.ForeignKey(Manufacturer, default=None, blank=True, null=True, on_delete=models.CASCADE)
     mouser_disable = models.BooleanField(default=False)
+    link = models.URLField(null=True, blank=True)
 
     class Meta:
         unique_together = [
@@ -668,14 +706,8 @@ class SellerPart(models.Model, AsDictModel):
     unit_cost = MoneyField(max_digits=19, decimal_places=4, default_currency='USD')
     lead_time_days = models.PositiveIntegerField(null=True, blank=True)
     nre_cost = MoneyField(max_digits=19, decimal_places=4, default_currency='USD')
+    link = models.URLField(null=True, blank=True)
     ncnr = models.BooleanField(default=False)
-
-    class Meta():
-        unique_together = [
-            'seller',
-            'manufacturer_part',
-            'minimum_order_quantity',
-            'unit_cost']
 
     def as_dict(self):
         d = super().as_dict()

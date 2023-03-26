@@ -150,11 +150,11 @@ td, tr {
 
 /* Override treetable icon */
 table.treetable tr.collapsed span.indenter a {
-    background-image: url('img/_ionicons_svg_md-arrow-dropright.svg');
+    background-image: url('../img/_ionicons_svg_md-arrow-dropright.svg');
 }
 
 table.treetable tr.expanded span.indenter a {
-    background-image: url('img/_ionicons_svg_md-arrow-dropdown.svg');
+    background-image: url('../img/_ionicons_svg_md-arrow-dropdown.svg');
 }
 
 /* Override Materialize container */
@@ -254,8 +254,8 @@ a.anchor {
 
     body {
         font-family: verdana, arial, sans-serif;
-        transform: scale(.7);
-        transform-origin: left top;
+        /*transform: scale(.7);*/
+        /*transform-origin: left top;*/
     }
 
     main {
@@ -300,5 +300,9 @@ a.anchor {
 
     table {
         page-break-inside: avoid;
+    }
+
+    .pagination {
+        display: none;
     }
 }
