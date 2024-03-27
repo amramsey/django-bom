@@ -143,7 +143,7 @@ def home(request):
         )
 
     autocomplete_dict = {}
-    enable_autocomplete = settings.BOM_CONFIG['admin_dashboard']['enable_autocomplete']
+    enable_autocomplete = settings.BOM_CONFIG.get('admin_dashboard', {}).get('enable_autocomplete', False)
     if enable_autocomplete:
         prefetch_related_objects(part_revs, 'part')
         manufacturer_parts = ManufacturerPart.objects.filter(part__in=parts)
@@ -273,7 +273,7 @@ def home(request):
                 writer.writerow({k: smart_str(v) for k, v in row.items()})
         return response
 
-    page_size = settings.BOM_CONFIG['admin_dashboard']['page_size']
+    page_size = settings.BOM_CONFIG.get('admin_dashboard', {}).get('page_size', 25)
     paginator = Paginator(part_revs, page_size)
 
     page = request.GET.get('page')
@@ -992,6 +992,8 @@ def upload_parts(request):
             messages.error(request, form.errors)
     else:
         form = FileForm()
+        if organization.number_scheme == constants.NUMBER_SCHEME_SEMI_INTELLIGENT and organization.partclass_set.count() <= 0:
+            messages.warning(request, f'!! Warning !! Before you upload parts, you must create any part classes. You can do this in Settings > Indabom.')
         return TemplateResponse(request, 'bom/upload-parts.html', locals())
 
     return HttpResponseRedirect(request.META.get('HTTP_REFERER', reverse('bom:home')))
